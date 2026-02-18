@@ -54,6 +54,7 @@ Important variables:
 - `LOG_LEVEL`
 - `APP_HOST`
 - `APP_PORT`
+- `IVFFLAT_PROBES`
 
 ## Run with Docker Compose
 

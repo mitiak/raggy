@@ -29,4 +29,9 @@ def get_retrieval_service(
     session: AsyncSession = Depends(get_db),
     embedding_service: EmbeddingService = Depends(get_embedding_service),
 ) -> RetrievalService:
-    return RetrievalService(session=session, embedding_service=embedding_service)
+    settings = get_settings()
+    return RetrievalService(
+        session=session,
+        embedding_service=embedding_service,
+        ivfflat_probes=settings.ivfflat_probes,
+    )

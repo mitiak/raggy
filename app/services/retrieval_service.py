@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chunk import Chunk
@@ -9,12 +9,19 @@ from app.services.embedding import EmbeddingService
 
 
 class RetrievalService:
-    def __init__(self, session: AsyncSession, embedding_service: EmbeddingService) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        embedding_service: EmbeddingService,
+        ivfflat_probes: int = 100,
+    ) -> None:
         self._session = session
         self._embedding_service = embedding_service
+        self._ivfflat_probes = max(1, ivfflat_probes)
 
     async def search(self, query: str, top_k: int) -> list[QueryResult]:
         vector = await self._embedding_service.embed_text(query)
+        await self._session.execute(text(f"SET LOCAL ivfflat.probes = {self._ivfflat_probes}"))
         distance = Chunk.embedding.cosine_distance(vector)
 
         stmt: Select[tuple[Chunk, float]] = (

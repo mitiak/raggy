@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, alias="APP_PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     embedding_dim: int = Field(default=1536, alias="EMBEDDING_DIM")
+    ivfflat_probes: int = Field(default=100, alias="IVFFLAT_PROBES")
     database_url: str = Field(
         default="postgresql+asyncpg://raggy:raggy@localhost:5432/raggy",
         alias="DATABASE_URL",
