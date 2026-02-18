@@ -18,6 +18,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added `raggy db` CLI commands to explore DB contents (`stats`, `documents`, `chunks`, `jobs`, `document`) from terminal.
 - Added fun real-document CLI exploration examples using Rubber Duck Debugging in `/Users/dimako/src/raggy/examples/fun-doc-rubber-duck.md`.
 - Fixed enum migration re-run failures (`source_type_enum` already exists) and added forward migration `0002_add_ingest_jobs_if_missing`.
+- Added pytest coverage for document ingestion service logic and CLI API/db helper behavior.
 
 ## [0.1.0] - 2026-02-18
 
