@@ -102,11 +102,31 @@ class DocumentService:
         return rows.one_or_none()
 
     @staticmethod
-    def _chunk_text(content: str, chunk_size: int = 800) -> list[str]:
+    def _chunk_text(
+        content: str,
+        chunk_size_tokens: int = 1000,
+        overlap_ratio: float = 0.12,
+    ) -> list[str]:
         normalized = " ".join(content.split())
         if not normalized:
             return [content]
-        return [normalized[i : i + chunk_size] for i in range(0, len(normalized), chunk_size)]
+
+        tokens = normalized.split(" ")
+        if len(tokens) <= chunk_size_tokens:
+            return [normalized]
+
+        overlap_tokens = max(1, int(chunk_size_tokens * overlap_ratio))
+        step = max(1, chunk_size_tokens - overlap_tokens)
+
+        chunks: list[str] = []
+        for start in range(0, len(tokens), step):
+            chunk_tokens = tokens[start : start + chunk_size_tokens]
+            if not chunk_tokens:
+                break
+            chunks.append(" ".join(chunk_tokens))
+            if start + chunk_size_tokens >= len(tokens):
+                break
+        return chunks
 
     @staticmethod
     def _token_count(text: str) -> int:
