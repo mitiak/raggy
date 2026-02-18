@@ -1,7 +1,9 @@
+import inspect
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Request, Response
@@ -41,12 +43,31 @@ async def log_requests(
     try:
         response = await call_next(request)
         latency_ms = (time.perf_counter() - start) * 1000
+        endpoint = request.scope.get("endpoint")
+
+        file_name: str | None = None
+        function_name: str | None = None
+        line_number: int | None = None
+        if callable(endpoint):
+            try:
+                source_file = inspect.getsourcefile(endpoint)
+                if source_file is not None:
+                    file_name = Path(source_file).name
+                function_name = endpoint.__name__
+                line_number = inspect.getsourcelines(endpoint)[1]
+            except (OSError, TypeError):
+                file_name = None
+                function_name = None
+                line_number = None
 
         logger.info(
             "request_completed",
             method=request.method,
             status_code=response.status_code,
             latency_ms=round(latency_ms, 2),
+            file=file_name,
+            function=function_name,
+            line=line_number,
         )
         return response
     finally:
