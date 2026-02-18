@@ -1,15 +1,175 @@
 # raggy
 
-Production-ready RAG backend using FastAPI, Postgres + pgvector, SQLAlchemy async, and Alembic.
+Production-ready RAG backend service built with FastAPI, PostgreSQL, pgvector, SQLAlchemy async, Alembic, and Pydantic v2.
 
-## Run locally
+## Features
+
+- Async FastAPI API service
+- PostgreSQL 15+ with `pgvector`
+- SQLAlchemy 2.0 async ORM
+- Alembic migrations
+- Strictly typed Python (mypy strict)
+- Layered architecture:
+  - `app/api` (HTTP layer only)
+  - `app/services` (business logic)
+  - `app/db` (DB config/session)
+  - `app/models` (ORM entities)
+  - `app/schemas` (Pydantic contracts)
+- Structured JSON logging
+- Dependency injection for DB sessions/services
+- Worker-ready boundary in `app/workers`
+
+## Project Structure
+
+```text
+app/
+  api/
+  core/
+  db/
+  models/
+  schemas/
+  services/
+  workers/
+alembic/
+```
+
+## Prerequisites
+
+- Docker + Docker Compose
+- Python 3.12+ (local development)
+- `uv` (recommended dependency manager)
+
+## Configuration
+
+Copy and edit environment values as needed:
+
+```bash
+cp .env.example .env
+```
+
+Important variables:
+
+- `DATABASE_URL`
+- `EMBEDDING_DIM`
+- `LOG_LEVEL`
+- `APP_HOST`
+- `APP_PORT`
+
+## Run with Docker Compose
+
+Start API + PostgreSQL:
 
 ```bash
 docker compose up --build
 ```
 
-## Migrations
+API will be available at:
+
+- `http://localhost:8000`
+- OpenAPI docs: `http://localhost:8000/docs`
+
+Stop services:
 
 ```bash
-alembic upgrade head
+docker compose down
 ```
+
+## Local Development (without Docker for API)
+
+Start only DB container:
+
+```bash
+docker compose up -d db
+```
+
+Install dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+Run DB migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+Start API:
+
+```bash
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## Database Migrations
+
+Apply latest migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+Create a new migration:
+
+```bash
+uv run alembic revision -m "describe_change"
+```
+
+Rollback one migration:
+
+```bash
+uv run alembic downgrade -1
+```
+
+## Quality Checks
+
+Lint:
+
+```bash
+uv run ruff check .
+```
+
+Type-check:
+
+```bash
+uv run mypy app
+```
+
+Run both:
+
+```bash
+uv run ruff check . && uv run mypy app
+```
+
+## API Endpoints
+
+- `GET /health` - health and DB connectivity check
+- `POST /documents` - ingest a document and persist generated chunks/embeddings
+- `POST /query` - semantic retrieval over stored chunks
+
+## Notes on Embeddings
+
+Current implementation uses a deterministic hash-based embedding service (`HashEmbeddingService`) to keep the service runnable end-to-end. Replace it with your production embedding provider in:
+
+- `app/services/embedding.py`
+- `app/api/dependencies.py`
+
+## Logging
+
+Structured JSON logs are configured in:
+
+- `app/core/logging.py`
+
+Request-level metadata (`request_id`, path, status, latency) is emitted by middleware in:
+
+- `app/main.py`
+
+## Changelog
+
+Release history is maintained in:
+
+- `CHANGELOG.md`
+
+## Maintenance Notes
+
+- Keep `README.md` updated when commands, env vars, architecture, or endpoints change.
+- Add every meaningful change to `CHANGELOG.md` under `Unreleased`, then move it to a version section at release time.
