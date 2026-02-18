@@ -178,6 +178,7 @@ uv run raggy api request --method POST --path /query --body-json '{"query":"hell
 ### Examples for Exploration
 
 - Fun real-document walkthrough (Rubber Duck Debugging): `/Users/dimako/src/raggy/examples/fun-doc-rubber-duck.md`
+- Full CLI examples for every command: `/Users/dimako/src/raggy/examples/cli-command-examples.md`
 - This guide includes:
   - ingesting a real document excerpt
   - running semantic queries
