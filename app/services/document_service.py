@@ -5,10 +5,13 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.models.chunk import Chunk
 from app.models.document import Document, SourceType
 from app.schemas.document import DocumentIngestRequest
 from app.services.embedding import EmbeddingService
+
+logger = get_logger(__name__)
 
 
 class DocumentService:
@@ -17,8 +20,16 @@ class DocumentService:
         self._embedding_service = embedding_service
 
     async def ingest_document(self, payload: DocumentIngestRequest) -> Document:
+        logger.info(
+            "document_ingest_started",
+            title=payload.title,
+            source_type=payload.source_type,
+            source_url=payload.source_url,
+        )
         chunks = self._chunk_text(payload.content)
+        logger.info("document_chunking_completed", chunk_count=len(chunks))
         embeddings = await self._embedding_service.embed_batch(chunks)
+        logger.info("document_embedding_completed", embedding_count=len(embeddings))
         content_hash = self._sha256(payload.content)
         source_type = SourceType(payload.source_type)
         fetched_at = payload.fetched_at or datetime.now(tz=UTC)
@@ -47,6 +58,11 @@ class DocumentService:
         self._session.add(document)
         await self._session.commit()
         await self._session.refresh(document)
+        logger.info(
+            "document_ingest_completed",
+            document_id=str(document.id),
+            chunk_count=len(chunks),
+        )
         return document
 
     @staticmethod

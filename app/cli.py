@@ -183,7 +183,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             f"--host {shlex.quote(host)} "
             f"--port {port} "
             f"{'--reload ' if args.reload else ''}"
-            "| jq -R 'fromjson? // .'"
+            "| jq -C -R 'fromjson? // .'"
         )
         return _run_shell_and_exit(shell_command, args.quiet)
 
