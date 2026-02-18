@@ -100,6 +100,34 @@ Start API:
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+### Development CLI
+
+This project ships with a development CLI command: `raggy`.
+
+Use it via:
+
+```bash
+uv run raggy --help
+```
+
+Common commands:
+
+```bash
+uv run raggy run
+uv run raggy run --jq
+uv run raggy migrate up
+uv run raggy migrate new "add_new_table" --autogenerate
+uv run raggy lint
+uv run raggy typecheck
+uv run raggy check
+```
+
+Pretty-print JSON logs with `jq`:
+
+```bash
+uv run raggy run --jq
+```
+
 ## Database Migrations
 
 Apply latest migrations:

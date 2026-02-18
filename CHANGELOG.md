@@ -11,6 +11,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Established changelog management with Keep a Changelog format.
 - Expanded README with detailed instructions for setup, development, Docker usage, migrations, and quality checks.
+- Added `raggy` development CLI for running the API, migrations, linting, type-checking, and tests from terminal.
+- Added `raggy run --jq` option to run `uvicorn` through `jq -R 'fromjson? // .'` for readable log output.
 
 ## [0.1.0] - 2026-02-18
 
