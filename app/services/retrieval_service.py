@@ -28,8 +28,8 @@ class RetrievalService:
             results.append(
                 QueryResult(
                     chunk_id=chunk.id,
-                    document_id=chunk.document_id,
-                    content=chunk.content,
+                    document_id=chunk.doc_id,
+                    content=chunk.text,
                     score=max(min(score, 1.0), 0.0),
                 )
             )
