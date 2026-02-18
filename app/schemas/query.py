@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -21,8 +22,8 @@ class UsedFilters(BaseModel):
     version: str | None = None
     lang: str | None = None
     source: str | None = None
-    date_from: str | None = None
-    date_to: str | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
 

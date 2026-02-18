@@ -15,7 +15,11 @@ async def query(
     service: RetrievalService = Depends(get_retrieval_service),
 ) -> QueryAnswer:
     logger.info("query_endpoint_started", query=payload.query, top_k=payload.top_k)
-    results = await service.search(query=payload.query, top_k=payload.top_k)
+    results = await service.search(
+        query=payload.query,
+        top_k=payload.top_k,
+        used_filters=payload.used_filters,
+    )
     logger.info("query_endpoint_completed", result_count=len(results))
     if not results:
         return QueryAnswer(

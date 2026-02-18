@@ -13,7 +13,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.document import SourceType
 from app.schemas.document import DocumentIngestRequest
-from app.schemas.query import QueryResult
+from app.schemas.query import QueryResult, UsedFilters
 
 
 class _FakeDbSession:
@@ -35,8 +35,13 @@ class _FakeDocumentService:
 
 
 class _FakeRetrievalService:
-    async def search(self, query: str, top_k: int) -> list[QueryResult]:
-        _ = (query, top_k)
+    async def search(
+        self,
+        query: str,
+        top_k: int,
+        used_filters: UsedFilters,
+    ) -> list[QueryResult]:
+        _ = (query, top_k, used_filters)
         return [
             QueryResult(
                 chunk_id=uuid4(),

@@ -69,13 +69,24 @@ async def test_ingest_document_persists_document_and_chunks() -> None:
 
 
 def test_chunk_text_normalizes_whitespace() -> None:
-    chunked = DocumentService._chunk_text("a   b\n\n c", chunk_size=4)
-    assert chunked == ["a b ", "c"]
+    chunked = DocumentService._chunk_text("a   b\n\n c")
+    assert chunked == ["a b c"]
 
 
 def test_chunk_text_keeps_original_when_only_whitespace() -> None:
     chunked = DocumentService._chunk_text("   \n\t   ")
     assert chunked == ["   \n\t   "]
+
+
+def test_chunk_text_uses_token_overlap() -> None:
+    content = " ".join(f"t{i}" for i in range(1, 13))
+    chunked = DocumentService._chunk_text(content, chunk_size_tokens=5, overlap_ratio=0.2)
+
+    assert chunked == [
+        "t1 t2 t3 t4 t5",
+        "t5 t6 t7 t8 t9",
+        "t9 t10 t11 t12",
+    ]
 
 
 def test_token_count_and_hash_helpers() -> None:
