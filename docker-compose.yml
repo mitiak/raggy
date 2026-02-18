@@ -1,0 +1,35 @@
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: raggy-db
+    environment:
+      POSTGRES_USER: raggy
+      POSTGRES_PASSWORD: raggy
+      POSTGRES_DB: raggy
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raggy -d raggy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: raggy-api
+    env_file:
+      - .env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://raggy:raggy@db:5432/raggy
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pg_data:
