@@ -10,6 +10,7 @@ from collections.abc import Coroutine, Sequence
 from datetime import datetime
 from typing import Any
 from urllib import error, request
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 from uuid import UUID
 
 from sqlalchemy import Select, func, select, text
@@ -99,6 +100,18 @@ def _as_utc_iso(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.isoformat()
+
+
+def _redact_db_url(raw_url: str) -> str:
+    split: SplitResult = urlsplit(raw_url)
+    if split.password is None:
+        return raw_url
+
+    username = split.username or ""
+    host = split.hostname or ""
+    port_suffix = f":{split.port}" if split.port is not None else ""
+    netloc = f"{username}:***@{host}{port_suffix}"
+    return urlunsplit((split.scheme, netloc, split.path, split.query, split.fragment))
 
 
 def _api_request(
@@ -218,6 +231,104 @@ def _cmd_check(args: argparse.Namespace) -> int:
         if exit_code != 0:
             return exit_code
     return 0
+
+
+async def _doctor_db_payload() -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": True,
+        "documents": 0,
+        "chunks": 0,
+        "ingest_jobs": 0,
+        "missing_tables": [],
+        "error": None,
+    }
+    try:
+        missing_tables = await _db_missing_tables("documents", "chunks", "ingest_jobs")
+        payload["missing_tables"] = missing_tables
+        if missing_tables:
+            payload["ok"] = False
+            return payload
+
+        payload["documents"] = int(
+            await _db_fetch_scalar(select(func.count()).select_from(Document)) or 0
+        )
+        payload["chunks"] = int(
+            await _db_fetch_scalar(select(func.count()).select_from(Chunk)) or 0
+        )
+        payload["ingest_jobs"] = int(
+            await _db_fetch_scalar(select(func.count()).select_from(IngestJob)) or 0
+        )
+        return payload
+    except SQLAlchemyError as exc:
+        payload["ok"] = False
+        payload["error"] = str(exc)
+        return payload
+
+
+def _doctor_api_payload(base_url: str, timeout: float) -> dict[str, Any]:
+    normalized_base = base_url.rstrip("/")
+    url = f"{normalized_base}/health"
+    req = request.Request(url=url, method="GET")
+
+    payload: dict[str, Any] = {
+        "ok": False,
+        "url": url,
+        "status_code": None,
+        "body": None,
+        "error": None,
+    }
+    try:
+        with request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+            payload["status_code"] = resp.status
+            payload["body"] = body
+            payload["ok"] = resp.status == 200
+            return payload
+    except error.HTTPError as exc:
+        payload["status_code"] = exc.code
+        payload["body"] = exc.read().decode("utf-8")
+        payload["error"] = "http_error"
+        return payload
+    except error.URLError as exc:
+        payload["error"] = str(exc.reason)
+        return payload
+
+
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    db_payload = asyncio.run(_doctor_db_payload())
+    api_payload = _doctor_api_payload(args.base_url, args.timeout)
+
+    payload = {
+        "database_url": _redact_db_url(settings.database_url),
+        "database": db_payload,
+        "api": api_payload,
+    }
+
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Doctor report:")
+        print(f"- database_url: {payload['database_url']}")
+        print(f"- db_ok: {db_payload['ok']}")
+        print(
+            f"- db_counts: documents={db_payload['documents']}, "
+            f"chunks={db_payload['chunks']}, ingest_jobs={db_payload['ingest_jobs']}"
+        )
+        if db_payload["missing_tables"]:
+            print(f"- db_missing_tables: {', '.join(db_payload['missing_tables'])}")
+        if db_payload["error"] is not None:
+            print(f"- db_error: {db_payload['error']}")
+
+        print(f"- api_health_url: {api_payload['url']}")
+        print(f"- api_ok: {api_payload['ok']}")
+        print(f"- api_status_code: {api_payload['status_code']}")
+        if api_payload["error"] is not None:
+            print(f"- api_error: {api_payload['error']}")
+
+    db_ok = bool(db_payload["ok"])
+    api_ok = bool(api_payload["ok"])
+    return 0 if db_ok and api_ok else 1
 
 
 def _cmd_api_list(_: argparse.Namespace) -> int:
@@ -884,6 +995,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common_verbosity(run_parser)
     run_parser.set_defaults(func=_cmd_run)
+
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Diagnose DB/API connectivity and schema status.",
+    )
+    doctor_parser.add_argument(
+        "--base-url",
+        type=str,
+        default="http://127.0.0.1:8000",
+        help="API base URL used for /health probe.",
+    )
+    doctor_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=3.0,
+        help="HTTP timeout in seconds for API probe.",
+    )
+    doctor_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    doctor_parser.set_defaults(func=_cmd_doctor)
 
     api_parser = subparsers.add_parser("api", help="Call service API endpoints.")
     api_subparsers = api_parser.add_subparsers(dest="api_command", required=True)

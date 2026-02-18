@@ -115,6 +115,7 @@ Common commands:
 ```bash
 uv run raggy run
 uv run raggy run --jq
+uv run raggy doctor
 uv run raggy migrate up
 uv run raggy migrate new "add_new_table" --autogenerate
 uv run raggy db stats
@@ -128,6 +129,13 @@ Pretty-print JSON logs with `jq`:
 
 ```bash
 uv run raggy run --jq
+```
+
+Quick environment diagnostics:
+
+```bash
+uv run raggy doctor
+uv run raggy doctor --json
 ```
 
 ### Trigger API Endpoints from CLI

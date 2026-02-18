@@ -30,6 +30,26 @@ Custom host/port and no reload:
 uv run raggy run --host 127.0.0.1 --port 8080 --no-reload
 ```
 
+## 1.1) `doctor`
+
+Run all-in-one diagnostics (DB URL, DB schema/counts, API health):
+
+```bash
+uv run raggy doctor
+```
+
+Machine-readable diagnostics:
+
+```bash
+uv run raggy doctor --json
+```
+
+Probe non-default API URL:
+
+```bash
+uv run raggy doctor --base-url http://localhost:8080 --timeout 5
+```
+
 ## 2) `api`
 
 List endpoint shortcuts:
