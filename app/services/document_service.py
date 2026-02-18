@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -26,15 +28,30 @@ class DocumentService:
             source_type=payload.source_type,
             source_url=payload.source_url,
         )
+        source_type = SourceType(payload.source_type)
+        content_hash = self._sha256(payload.content)
+        existing_document = await self._find_existing_document(
+            source_type=source_type,
+            source_url=payload.source_url,
+            content_hash=content_hash,
+        )
+        if existing_document is not None:
+            logger.info(
+                "document_ingest_skipped_existing",
+                document_id=str(existing_document.id),
+                content_hash=content_hash,
+            )
+            return existing_document
+
         chunks = self._chunk_text(payload.content)
         logger.info("document_chunking_completed", chunk_count=len(chunks))
         embeddings = await self._embedding_service.embed_batch(chunks)
         logger.info("document_embedding_completed", embedding_count=len(embeddings))
-        content_hash = self._sha256(payload.content)
-        source_type = SourceType(payload.source_type)
         fetched_at = payload.fetched_at or datetime.now(tz=UTC)
+        doc_id = uuid.uuid4()
 
         document = Document(
+            id=doc_id,
             source_type=source_type,
             source_url=payload.source_url,
             title=payload.title,
@@ -45,6 +62,7 @@ class DocumentService:
 
         document.chunks = [
             Chunk(
+                id=self._deterministic_chunk_id(doc_id=doc_id, chunk_index=index, text=chunk),
                 chunk_index=index,
                 text=chunk,
                 token_count=self._token_count(chunk),
@@ -65,6 +83,24 @@ class DocumentService:
         )
         return document
 
+    async def _find_existing_document(
+        self,
+        *,
+        source_type: SourceType,
+        source_url: str | None,
+        content_hash: str,
+    ) -> Document | None:
+        stmt = select(Document).where(
+            Document.source_type == source_type,
+            Document.content_hash == content_hash,
+        )
+        if source_url is None:
+            stmt = stmt.where(Document.source_url.is_(None))
+        else:
+            stmt = stmt.where(Document.source_url == source_url)
+        rows = await self._session.scalars(stmt)
+        return rows.one_or_none()
+
     @staticmethod
     def _chunk_text(content: str, chunk_size: int = 800) -> list[str]:
         normalized = " ".join(content.split())
@@ -79,3 +115,9 @@ class DocumentService:
     @staticmethod
     def _sha256(value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _deterministic_chunk_id(doc_id: uuid.UUID, chunk_index: int, text: str) -> uuid.UUID:
+        seed = f"{doc_id}:{chunk_index}:{text}"
+        digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+        return uuid.UUID(hex=digest[:32])
