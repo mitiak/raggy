@@ -1,15 +1,25 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import shlex
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Coroutine, Sequence
+from datetime import datetime
 from typing import Any
 from urllib import error, request
+from uuid import UUID
+
+from sqlalchemy import Select, func, select, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
+from app.db.session import SessionLocal
+from app.models.chunk import Chunk
+from app.models.document import Document
+from app.models.ingest_job import IngestJob
 
 
 def _run_command(command: Sequence[str]) -> int:
@@ -61,6 +71,34 @@ def _print_response(raw_body: str, pretty: bool) -> None:
         return
 
     print(raw_body)
+
+
+def _db_json_default(value: Any) -> Any:
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if hasattr(value, "value"):
+        return value.value
+    raise TypeError(f"Object of type {type(value)!r} is not JSON serializable")
+
+
+def _run_db_command(coro: Coroutine[Any, Any, int]) -> int:
+    try:
+        return int(asyncio.run(coro))
+    except SQLAlchemyError as exc:
+        print(f"Database command failed: {exc}")
+        return 1
+
+
+def _print_json(data: Any) -> None:
+    print(json.dumps(data, indent=2, sort_keys=True, default=_db_json_default))
+
+
+def _as_utc_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
 
 
 def _api_request(
@@ -273,6 +311,535 @@ def _cmd_api_request(args: argparse.Namespace) -> int:
     )
 
 
+async def _db_fetch_rows(statement: Select[Any]) -> list[Any]:
+    async with SessionLocal() as session:
+        rows = await session.execute(statement)
+        return list(rows)
+
+
+async def _db_fetch_scalars(statement: Select[Any]) -> list[Any]:
+    async with SessionLocal() as session:
+        rows = await session.scalars(statement)
+        return list(rows)
+
+
+async def _db_fetch_scalar(
+    statement: Any,
+    params: dict[str, Any] | None = None,
+) -> Any:
+    async with SessionLocal() as session:
+        return await session.scalar(statement, params or {})
+
+
+async def _db_fetch_mappings(
+    statement: Any,
+    params: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    async with SessionLocal() as session:
+        result = await session.execute(statement, params or {})
+        return [dict(row) for row in result.mappings()]
+
+
+async def _db_table_exists(table_name: str) -> bool:
+    statement = text("SELECT to_regclass(:qualified_name)")
+    qualified_name = f"public.{table_name}"
+    async with SessionLocal() as session:
+        result = await session.scalar(statement, {"qualified_name": qualified_name})
+    return result is not None
+
+
+async def _db_missing_tables(*table_names: str) -> list[str]:
+    missing: list[str] = []
+    for table_name in table_names:
+        if not await _db_table_exists(table_name):
+            missing.append(table_name)
+    return missing
+
+
+async def _db_table_columns(table_name: str) -> set[str]:
+    statement = text(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = :table_name
+        """
+    )
+    async with SessionLocal() as session:
+        result = await session.execute(statement, {"table_name": table_name})
+        return {str(column_name) for column_name in result.scalars().all()}
+
+
+async def _db_chunks_doc_fk_column() -> str | None:
+    columns = await _db_table_columns("chunks")
+    for candidate in ("doc_id", "document_id"):
+        if candidate in columns:
+            return candidate
+    return None
+
+
+def _db_preferred_column(columns: set[str], *candidates: str) -> str | None:
+    for candidate in candidates:
+        if candidate in columns:
+            return candidate
+    return None
+
+
+def _print_incompatible_schema_hint(table_name: str, expected_columns: list[str]) -> None:
+    cols = ", ".join(expected_columns)
+    print(
+        f"Table '{table_name}' exists but has an unexpected schema. "
+        f"Expected one of these columns: {cols}"
+    )
+    print("Run migrations: uv run raggy migrate up")
+
+
+def _print_missing_tables_hint(missing_tables: list[str]) -> None:
+    tables = ", ".join(missing_tables)
+    print(f"Missing table(s): {tables}")
+    print("Run migrations: uv run raggy migrate up")
+
+
+async def _cmd_db_stats_async(args: argparse.Namespace) -> int:
+    missing_tables = await _db_missing_tables("documents", "chunks", "ingest_jobs")
+
+    docs_count = 0
+    chunks_count = 0
+    jobs_count = 0
+
+    if "documents" not in missing_tables:
+        docs_count = int(await _db_fetch_scalar(select(func.count()).select_from(Document)) or 0)
+    if "chunks" not in missing_tables:
+        chunks_count = int(await _db_fetch_scalar(select(func.count()).select_from(Chunk)) or 0)
+    if "ingest_jobs" not in missing_tables:
+        jobs_count = int(await _db_fetch_scalar(select(func.count()).select_from(IngestJob)) or 0)
+
+    payload = {
+        "documents": docs_count,
+        "chunks": chunks_count,
+        "ingest_jobs": jobs_count,
+        "missing_tables": missing_tables,
+    }
+    if args.json:
+        _print_json(payload)
+        return 0
+
+    print("Database stats:")
+    print(f"- documents: {docs_count}")
+    print(f"- chunks: {chunks_count}")
+    print(f"- ingest_jobs: {jobs_count}")
+    if missing_tables:
+        _print_missing_tables_hint(missing_tables)
+    return 0
+
+
+def _cmd_db_stats(args: argparse.Namespace) -> int:
+    return _run_db_command(_cmd_db_stats_async(args))
+
+
+async def _cmd_db_documents_async(args: argparse.Namespace) -> int:
+    missing_required = await _db_missing_tables("documents")
+    if missing_required:
+        _print_missing_tables_hint(missing_required)
+        return 1
+
+    document_columns = await _db_table_columns("documents")
+    fetched_at_column = _db_preferred_column(document_columns, "fetched_at", "created_at")
+    source_type_expression = "NULL::text AS source_type"
+    if "source_type" in document_columns:
+        source_type_expression = "d.source_type::text AS source_type"
+    source_url_expression = "NULL::text AS source_url"
+    if "source_url" in document_columns:
+        source_url_expression = "d.source_url AS source_url"
+    fetched_at_expression = "NULL::timestamptz AS fetched_at"
+    order_by_expression = "d.id DESC"
+    if fetched_at_column is not None:
+        fetched_at_expression = f"d.{fetched_at_column} AS fetched_at"
+        order_by_expression = f"d.{fetched_at_column} DESC"
+
+    chunks_exists = not await _db_missing_tables("chunks")
+    chunk_fk_column: str | None = None
+    if chunks_exists:
+        chunk_fk_column = await _db_chunks_doc_fk_column()
+        if chunk_fk_column is None:
+            _print_incompatible_schema_hint("chunks", ["doc_id", "document_id"])
+            return 1
+
+    if chunks_exists and chunk_fk_column is not None:
+        statement = text(
+            f"""
+            SELECT
+                d.id,
+                d.title,
+                {source_type_expression},
+                {source_url_expression},
+                {fetched_at_expression},
+                COUNT(c.id) AS chunk_count
+            FROM documents d
+            LEFT JOIN chunks c ON c.{chunk_fk_column} = d.id
+            GROUP BY d.id, d.title, source_type, source_url, fetched_at
+            ORDER BY {order_by_expression}
+            LIMIT :limit
+            """
+        )
+    else:
+        statement = text(
+            """
+            SELECT
+                d.id,
+                d.title,
+                NULL::text AS source_type,
+                NULL::text AS source_url,
+                NULL::timestamptz AS fetched_at,
+                0 AS chunk_count
+            FROM documents d
+            ORDER BY d.id DESC
+            LIMIT :limit
+            """
+        )
+    rows = await _db_fetch_mappings(statement, {"limit": args.limit})
+    items = [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "source_type": row["source_type"],
+            "source_url": row["source_url"],
+            "fetched_at": _as_utc_iso(row["fetched_at"]),
+            "chunk_count": int(row.get("chunk_count") or 0),
+        }
+        for row in rows
+    ]
+
+    if args.json:
+        _print_json(items)
+        return 0
+
+    print(f"Recent documents (limit={args.limit}):")
+    if not chunks_exists:
+        print("chunks table is missing, chunk counts are shown as 0.")
+    if not items:
+        print("<no documents>")
+        return 0
+    for item in items:
+        print(
+            f"- {item['id']} | {item['title']} | chunks={item['chunk_count']} | "
+            f"source={item['source_type']} | fetched_at={item['fetched_at']}"
+        )
+    return 0
+
+
+def _cmd_db_documents(args: argparse.Namespace) -> int:
+    return _run_db_command(_cmd_db_documents_async(args))
+
+
+async def _cmd_db_chunks_async(args: argparse.Namespace) -> int:
+    missing_required = await _db_missing_tables("chunks")
+    if missing_required:
+        _print_missing_tables_hint(missing_required)
+        return 1
+
+    chunk_fk_column = await _db_chunks_doc_fk_column()
+    if chunk_fk_column is None:
+        _print_incompatible_schema_hint("chunks", ["doc_id", "document_id"])
+        return 1
+
+    chunk_columns = await _db_table_columns("chunks")
+    created_at_column = _db_preferred_column(chunk_columns, "created_at")
+    token_count_expression = "0 AS token_count"
+    if "token_count" in chunk_columns:
+        token_count_expression = "c.token_count AS token_count"
+    content_hash_expression = "NULL::text AS content_hash"
+    if "content_hash" in chunk_columns:
+        content_hash_expression = "c.content_hash AS content_hash"
+    created_at_expression = "NULL::timestamptz AS created_at"
+    order_by_expression = "c.id DESC"
+    if created_at_column is not None:
+        created_at_expression = f"c.{created_at_column} AS created_at"
+        order_by_expression = f"c.{created_at_column} DESC"
+
+    documents_exists = not await _db_missing_tables("documents")
+    params: dict[str, Any] = {"limit": args.limit}
+    doc_filter = ""
+    if args.doc_id is not None:
+        doc_filter = f"WHERE c.{chunk_fk_column} = :doc_id"
+        params["doc_id"] = args.doc_id
+
+    if documents_exists:
+        statement = text(
+            f"""
+            SELECT
+                c.id,
+                c.{chunk_fk_column} AS doc_id,
+                c.chunk_index,
+                {token_count_expression},
+                {created_at_expression},
+                {content_hash_expression},
+                d.title AS document_title
+            FROM chunks c
+            JOIN documents d ON c.{chunk_fk_column} = d.id
+            {doc_filter}
+            ORDER BY {order_by_expression}
+            LIMIT :limit
+            """
+        )
+    else:
+        statement = text(
+            f"""
+            SELECT
+                c.id,
+                c.{chunk_fk_column} AS doc_id,
+                c.chunk_index,
+                {token_count_expression},
+                {created_at_expression},
+                {content_hash_expression},
+                NULL::text AS document_title
+            FROM chunks c
+            {doc_filter}
+            ORDER BY {order_by_expression}
+            LIMIT :limit
+            """
+        )
+
+    rows = await _db_fetch_mappings(statement, params)
+    items = [
+        {
+            "id": row["id"],
+            "doc_id": row["doc_id"],
+            "document_title": row["document_title"],
+            "chunk_index": row["chunk_index"],
+            "token_count": row["token_count"],
+            "created_at": _as_utc_iso(row["created_at"]),
+            "content_hash": row["content_hash"],
+        }
+        for row in rows
+    ]
+
+    if args.json:
+        _print_json(items)
+        return 0
+
+    print(f"Recent chunks (limit={args.limit}):")
+    if not documents_exists:
+        print("documents table is missing, document titles are unavailable.")
+    if not items:
+        print("<no chunks>")
+        return 0
+    for item in items:
+        print(
+            f"- {item['id']} | doc={item['doc_id']} | idx={item['chunk_index']} | "
+            f"tokens={item['token_count']} | created_at={item['created_at']} | "
+            f"title={item['document_title']}"
+        )
+    return 0
+
+
+def _cmd_db_chunks(args: argparse.Namespace) -> int:
+    return _run_db_command(_cmd_db_chunks_async(args))
+
+
+async def _cmd_db_jobs_async(args: argparse.Namespace) -> int:
+    missing_required = await _db_missing_tables("ingest_jobs")
+    if missing_required:
+        _print_missing_tables_hint(missing_required)
+        return 1
+
+    statement = (
+        select(
+            IngestJob.id,
+            IngestJob.status,
+            IngestJob.docs_processed,
+            IngestJob.chunks_created,
+            IngestJob.started_at,
+            IngestJob.finished_at,
+            IngestJob.error_message,
+        )
+        .order_by(IngestJob.started_at.desc())
+        .limit(args.limit)
+    )
+    rows = await _db_fetch_rows(statement)
+    items = [
+        {
+            "id": row.id,
+            "status": row.status,
+            "docs_processed": row.docs_processed,
+            "chunks_created": row.chunks_created,
+            "started_at": _as_utc_iso(row.started_at),
+            "finished_at": _as_utc_iso(row.finished_at),
+            "error_message": row.error_message,
+        }
+        for row in rows
+    ]
+
+    if args.json:
+        _print_json(items)
+        return 0
+
+    print(f"Recent ingest jobs (limit={args.limit}):")
+    if not items:
+        print("<no ingest jobs>")
+        return 0
+    for item in items:
+        print(
+            f"- {item['id']} | status={item['status']} | docs={item['docs_processed']} | "
+            f"chunks={item['chunks_created']} | started_at={item['started_at']} | "
+            f"finished_at={item['finished_at']}"
+        )
+        if item["error_message"]:
+            print(f"  error: {item['error_message']}")
+    return 0
+
+
+def _cmd_db_jobs(args: argparse.Namespace) -> int:
+    return _run_db_command(_cmd_db_jobs_async(args))
+
+
+async def _cmd_db_document_async(args: argparse.Namespace) -> int:
+    missing_required = await _db_missing_tables("documents")
+    if missing_required:
+        _print_missing_tables_hint(missing_required)
+        return 1
+
+    document_columns = await _db_table_columns("documents")
+    source_type_expression = "NULL::text AS source_type"
+    if "source_type" in document_columns:
+        source_type_expression = "source_type::text AS source_type"
+    source_url_expression = "NULL::text AS source_url"
+    if "source_url" in document_columns:
+        source_url_expression = "source_url AS source_url"
+    fetched_at_expression = "NULL::timestamptz AS fetched_at"
+    fetched_at_column = _db_preferred_column(document_columns, "fetched_at", "created_at")
+    if fetched_at_column is not None:
+        fetched_at_expression = f"{fetched_at_column} AS fetched_at"
+    content_hash_expression = "NULL::text AS content_hash"
+    if "content_hash" in document_columns:
+        content_hash_expression = "content_hash AS content_hash"
+    metadata_expression = "'{}'::jsonb AS metadata"
+    if "metadata" in document_columns:
+        metadata_expression = "metadata AS metadata"
+
+    doc_statement = text(
+        f"""
+        SELECT
+            id,
+            title,
+            {source_type_expression},
+            {source_url_expression},
+            {fetched_at_expression},
+            {content_hash_expression},
+            {metadata_expression}
+        FROM documents
+        WHERE id = :id
+        LIMIT 1
+        """
+    )
+    doc_rows = await _db_fetch_mappings(doc_statement, {"id": args.id})
+    if not doc_rows:
+        print(f"Document not found: {args.id}")
+        return 1
+    document = doc_rows[0]
+
+    chunks_exists = not await _db_missing_tables("chunks")
+    chunk_fk_column: str | None = None
+    if chunks_exists:
+        chunk_fk_column = await _db_chunks_doc_fk_column()
+        if chunk_fk_column is None:
+            _print_incompatible_schema_hint("chunks", ["doc_id", "document_id"])
+            return 1
+
+    chunk_columns = await _db_table_columns("chunks")
+    chunk_text_column = _db_preferred_column(chunk_columns, "text", "content")
+    if chunks_exists and chunk_text_column is None:
+        _print_incompatible_schema_hint("chunks", ["text", "content"])
+        return 1
+
+    chunk_token_expression = "0 AS token_count"
+    if "token_count" in chunk_columns:
+        chunk_token_expression = "token_count AS token_count"
+    chunk_created_at_expression = "NULL::timestamptz AS created_at"
+    chunk_created_at_column = _db_preferred_column(chunk_columns, "created_at")
+    if chunk_created_at_column is not None:
+        chunk_created_at_expression = f"{chunk_created_at_column} AS created_at"
+
+    chunk_count = 0
+    chunk_rows: list[dict[str, Any]] = []
+    if chunks_exists and chunk_fk_column is not None and chunk_text_column is not None:
+        chunk_count_statement = text(
+            f"""
+            SELECT COUNT(*)
+            FROM chunks
+            WHERE {chunk_fk_column} = :id
+            """
+        )
+        chunk_count = int(await _db_fetch_scalar(chunk_count_statement, {"id": args.id}) or 0)
+        chunk_statement = text(
+            f"""
+            SELECT
+                id,
+                chunk_index,
+                {chunk_token_expression},
+                {chunk_created_at_expression},
+                {chunk_text_column} AS text
+            FROM chunks
+            WHERE {chunk_fk_column} = :id
+            ORDER BY chunk_index ASC
+            LIMIT :chunks_limit
+            """
+        )
+        chunk_rows = await _db_fetch_mappings(
+            chunk_statement,
+            {"id": args.id, "chunks_limit": args.chunks_limit},
+        )
+
+    payload = {
+        "id": document["id"],
+        "title": document["title"],
+        "source_type": document["source_type"],
+        "source_url": document["source_url"],
+        "fetched_at": _as_utc_iso(document["fetched_at"]),
+        "content_hash": document["content_hash"],
+        "metadata": document["metadata"] or {},
+        "chunk_count": chunk_count,
+        "sample_chunks": [
+            {
+                "id": row["id"],
+                "chunk_index": row["chunk_index"],
+                "token_count": row["token_count"],
+                "created_at": _as_utc_iso(row["created_at"]),
+                "text_preview": row["text"][: args.preview_chars],
+            }
+            for row in chunk_rows
+        ],
+    }
+
+    if args.json:
+        _print_json(payload)
+        return 0
+
+    print(f"Document: {payload['id']}")
+    print(f"- title: {payload['title']}")
+    print(f"- source_type: {payload['source_type']}")
+    print(f"- source_url: {payload['source_url']}")
+    print(f"- fetched_at: {payload['fetched_at']}")
+    print(f"- content_hash: {payload['content_hash']}")
+    print(f"- chunk_count: {payload['chunk_count']}")
+    print(f"- metadata: {json.dumps(payload['metadata'], sort_keys=True)}")
+    if not chunks_exists:
+        print("- chunks table is missing")
+    print(f"- sample_chunks (limit={args.chunks_limit}):")
+    if not payload["sample_chunks"]:
+        print("  <none>")
+        return 0
+    for item in payload["sample_chunks"]:
+        print(
+            f"  - {item['id']} | idx={item['chunk_index']} | tokens={item['token_count']} | "
+            f"created_at={item['created_at']} | text={item['text_preview']!r}"
+        )
+    return 0
+
+
+def _cmd_db_document(args: argparse.Namespace) -> int:
+    return _run_db_command(_cmd_db_document_async(args))
+
+
 def _add_api_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--base-url",
@@ -357,6 +924,46 @@ def build_parser() -> argparse.ArgumentParser:
     api_request_parser.add_argument("--body-json", default=None)
     _add_api_common_options(api_request_parser)
     api_request_parser.set_defaults(func=_cmd_api_request)
+
+    db_parser = subparsers.add_parser("db", help="Explore database records from terminal.")
+    db_subparsers = db_parser.add_subparsers(dest="db_command", required=True)
+
+    db_stats_parser = db_subparsers.add_parser("stats", help="Show row counts by table.")
+    db_stats_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    db_stats_parser.set_defaults(func=_cmd_db_stats)
+
+    db_documents_parser = db_subparsers.add_parser("documents", help="List recent documents.")
+    db_documents_parser.add_argument("--limit", type=int, default=20)
+    db_documents_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    db_documents_parser.set_defaults(func=_cmd_db_documents)
+
+    db_chunks_parser = db_subparsers.add_parser("chunks", help="List recent chunks.")
+    db_chunks_parser.add_argument("--limit", type=int, default=20)
+    db_chunks_parser.add_argument(
+        "--doc-id",
+        type=UUID,
+        default=None,
+        help="Filter by document UUID.",
+    )
+    db_chunks_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    db_chunks_parser.set_defaults(func=_cmd_db_chunks)
+
+    db_jobs_parser = db_subparsers.add_parser("jobs", help="List recent ingest jobs.")
+    db_jobs_parser.add_argument("--limit", type=int, default=20)
+    db_jobs_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    db_jobs_parser.set_defaults(func=_cmd_db_jobs)
+
+    db_document_parser = db_subparsers.add_parser("document", help="Inspect a single document.")
+    db_document_parser.add_argument("--id", type=UUID, required=True, help="Document UUID.")
+    db_document_parser.add_argument("--chunks-limit", type=int, default=5)
+    db_document_parser.add_argument(
+        "--preview-chars",
+        type=int,
+        default=140,
+        help="Character count for each chunk text preview.",
+    )
+    db_document_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    db_document_parser.set_defaults(func=_cmd_db_document)
 
     migrate_parser = subparsers.add_parser("migrate", help="Run Alembic migrations.")
     migrate_subparsers = migrate_parser.add_subparsers(dest="migrate_command", required=True)

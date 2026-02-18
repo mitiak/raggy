@@ -117,6 +117,8 @@ uv run raggy run
 uv run raggy run --jq
 uv run raggy migrate up
 uv run raggy migrate new "add_new_table" --autogenerate
+uv run raggy db stats
+uv run raggy db documents --limit 10
 uv run raggy lint
 uv run raggy typecheck
 uv run raggy check
@@ -172,6 +174,43 @@ uv run raggy api request --method POST --path /query --body-json '{"query":"hell
 - Use `--timeout` for slower environments.
 - Use `--raw` if you need exact response bytes without pretty-printed JSON.
 - Pass valid JSON objects to `--metadata-json` and `--body-json`.
+
+### Examples for Exploration
+
+- Fun real-document walkthrough (Rubber Duck Debugging): `/Users/dimako/src/raggy/examples/fun-doc-rubber-duck.md`
+- This guide includes:
+  - ingesting a real document excerpt
+  - running semantic queries
+  - testing validation failures (`422`)
+  - testing unknown routes (`404`)
+
+### Explore Database from CLI
+
+Get table-level counts:
+
+```bash
+uv run raggy db stats
+```
+
+List recent rows:
+
+```bash
+uv run raggy db documents --limit 20
+uv run raggy db chunks --limit 20
+uv run raggy db jobs --limit 20
+```
+
+Inspect one document with chunk previews:
+
+```bash
+uv run raggy db document --id <DOCUMENT_UUID> --chunks-limit 5
+```
+
+Output any DB command as JSON:
+
+```bash
+uv run raggy db documents --json
+```
 
 ## Database Migrations
 
