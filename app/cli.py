@@ -24,13 +24,19 @@ from app.models.ingest_job import IngestJob
 
 
 def _run_command(command: Sequence[str]) -> int:
-    process = subprocess.run(command, check=False)
-    return process.returncode
+    try:
+        process = subprocess.run(command, check=False)
+        return process.returncode
+    except KeyboardInterrupt:
+        return 130
 
 
 def _run_shell_command(command: str) -> int:
-    process = subprocess.run(command, check=False, shell=True)
-    return process.returncode
+    try:
+        process = subprocess.run(command, check=False, shell=True)
+        return process.returncode
+    except KeyboardInterrupt:
+        return 130
 
 
 def _add_common_verbosity(parser: argparse.ArgumentParser) -> None:
