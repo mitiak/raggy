@@ -14,6 +14,8 @@ def test_query_answer_requires_citation_for_claims() -> None:
             citations=[],
             used_filters=UsedFilters(),
             confidence=0.8,
+            retrieve_ms=1.0,
+            gen_ms=1.0,
         )
 
 
@@ -23,6 +25,8 @@ def test_query_answer_allows_no_citations_for_unknown() -> None:
         citations=[],
         used_filters=UsedFilters(),
         confidence=0.0,
+        retrieve_ms=0.5,
+        gen_ms=0.0,
     )
 
     assert payload.citations == []

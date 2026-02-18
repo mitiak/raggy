@@ -142,7 +142,9 @@ def _api_request(
         body_bytes = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
 
-    if not quiet:
+    show_meta = (not quiet) and pretty
+
+    if show_meta:
         print(f"$ {method.upper()} {url}")
         if payload is not None:
             print(json.dumps(payload, indent=2, sort_keys=True))
@@ -155,14 +157,16 @@ def _api_request(
     except error.HTTPError as exc:
         status_code = exc.code
         response_body = exc.read().decode("utf-8")
-        print(f"HTTP {status_code}")
+        if show_meta:
+            print(f"HTTP {status_code}")
         _print_response(response_body, pretty)
         return 1
     except error.URLError as exc:
         print(f"Request failed: {exc.reason}")
         return 1
 
-    print(f"HTTP {status_code}")
+    if show_meta:
+        print(f"HTTP {status_code}")
     _print_response(response_body, pretty)
     return 0
 

@@ -55,6 +55,8 @@ def test_eval_harness_end_to_end(tmp_path: Path, monkeypatch) -> None:
                     ],
                     "used_filters": {"lang": "en", "extra": {}},
                     "confidence": 0.9,
+                    "retrieve_ms": 1.2,
+                    "gen_ms": 0.4,
                 },
             )
         return (
@@ -64,6 +66,8 @@ def test_eval_harness_end_to_end(tmp_path: Path, monkeypatch) -> None:
                 "citations": [],
                 "used_filters": {"lang": "en", "extra": {}},
                 "confidence": 0.0,
+                "retrieve_ms": 0.8,
+                "gen_ms": 0.0,
             },
         )
 

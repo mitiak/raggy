@@ -20,5 +20,10 @@ async def query(
         top_k=payload.top_k,
         used_filters=payload.used_filters,
     )
-    logger.info("query_endpoint_completed", citation_count=len(answer.citations))
+    logger.info(
+        "query_endpoint_completed",
+        citation_count=len(answer.citations),
+        retrieve_ms=answer.retrieve_ms,
+        gen_ms=answer.gen_ms,
+    )
     return answer

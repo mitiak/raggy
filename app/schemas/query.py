@@ -56,6 +56,8 @@ class QueryAnswer(BaseModel):
     citations: list[Citation]
     used_filters: UsedFilters
     confidence: float = Field(ge=0.0, le=1.0)
+    retrieve_ms: float = Field(ge=0.0)
+    gen_ms: float = Field(ge=0.0)
 
     @model_validator(mode="after")
     def validate_claims_have_citations(self) -> QueryAnswer:

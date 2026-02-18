@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from time import perf_counter
+
 from app.core.logging import get_logger
 from app.schemas.query import Citation, QueryAnswer, UsedFilters
 from app.services.retrieval_service import RetrievalService
@@ -27,21 +29,32 @@ class RagService:
             used_filters=used_filters.model_dump(mode="json"),
         )
         logger.info("rag_system_instruction_applied", instruction=SYSTEM_INSTRUCTION)
+        retrieve_started = perf_counter()
         results = await self._retrieval_service.search(
             query=query,
             top_k=retrieval_top_k,
             used_filters=used_filters,
         )
+        retrieve_ms = (perf_counter() - retrieve_started) * 1000
 
         if not results:
-            logger.info("rag_answer_completed", result_count=0, confidence=0.0)
+            logger.info(
+                "rag_answer_completed",
+                result_count=0,
+                confidence=0.0,
+                retrieve_ms=round(retrieve_ms, 2),
+                gen_ms=0.0,
+            )
             return QueryAnswer(
                 answer="I don't know based on the provided documents.",
                 citations=[],
                 used_filters=used_filters,
                 confidence=0.0,
+                retrieve_ms=round(retrieve_ms, 2),
+                gen_ms=0.0,
             )
 
+        gen_started = perf_counter()
         context_size = min(max(6, top_k), 10)
         selected = results[:context_size]
 
@@ -59,16 +72,21 @@ class RagService:
         # For now, keep generation extractive to guarantee grounding in provided chunks.
         answer_text = selected[0].content
         confidence = sum(item.score for item in selected) / len(selected)
+        gen_ms = (perf_counter() - gen_started) * 1000
 
         logger.info(
             "rag_answer_completed",
             result_count=len(results),
             selected_count=len(selected),
             confidence=round(confidence, 4),
+            retrieve_ms=round(retrieve_ms, 2),
+            gen_ms=round(gen_ms, 2),
         )
         return QueryAnswer(
             answer=answer_text,
             citations=citations,
             used_filters=used_filters,
             confidence=confidence,
+            retrieve_ms=round(retrieve_ms, 2),
+            gen_ms=round(gen_ms, 2),
         )

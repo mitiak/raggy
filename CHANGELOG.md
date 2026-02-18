@@ -27,10 +27,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added Alembic migration `0003_doc_idempotency` with unique index `uq_documents_idempotency` for dedupe/upsert safety.
 - Added dedicated `RagService` generation layer so `/query` answer synthesis is separated from retrieval and routes.
 - Implemented milestone-4 guardrails: request size limiting (413) and basic in-memory rate limiting (429).
-- Added milestone verification guides for 3/4 and planned guides for 5/6 under `/Users/dimako/src/raggy/examples/`.
+- Added milestone verification guides for 3/4/5/6 under `/Users/dimako/src/raggy/examples/`.
 - Added e2e tests for milestone 4 guardrails and placeholder pending e2e specs for milestones 5 and 6.
 - Implemented milestone-5 evaluation harness with `raggy eval run`, fixture docs, golden QA set, and metrics (citation correctness, retrieval hit rate, IDK rate).
 - Added milestone-5 e2e test in `/Users/dimako/src/raggy/tests/test_milestone5_eval_e2e.py`.
+- Implemented milestone-6 query timing outputs (`retrieve_ms`, `gen_ms`) in RAG responses and logs.
+- Added milestone-6 e2e test in `/Users/dimako/src/raggy/tests/test_milestone6_timings_e2e.py`.
 
 ## [0.1.0] - 2026-02-18
 

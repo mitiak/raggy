@@ -18,6 +18,8 @@ class _FakeRagService:
             citations=[],
             used_filters=UsedFilters(),
             confidence=0.0,
+            retrieve_ms=0.0,
+            gen_ms=0.0,
         )
 
 
