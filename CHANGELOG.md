@@ -22,6 +22,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added `/Users/dimako/src/raggy/examples/cli-command-examples.md` with examples for all CLI commands and subcommands.
 - Added `raggy doctor` command to diagnose effective DB target, schema/table status, and API health in one step.
 - Fixed empty vector search results on small datasets by setting `ivfflat.probes` during retrieval (configurable via `IVFFLAT_PROBES`).
+- Added API e2e tests for `/health`, `/documents`, and `/query` (including validation error path).
 
 ## [0.1.0] - 2026-02-18
 
