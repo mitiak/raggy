@@ -128,6 +128,51 @@ Pretty-print JSON logs with `jq`:
 uv run raggy run --jq
 ```
 
+### Trigger API Endpoints from CLI
+
+List shortcut commands:
+
+```bash
+uv run raggy api list
+```
+
+Call health endpoint:
+
+```bash
+uv run raggy api health
+```
+
+Ingest a document:
+
+```bash
+uv run raggy api ingest \\
+  --source-type url \\
+  --source-url https://example.com/post \\
+  --title "Example Post" \\
+  --content "Some markdown or plain text content." \\
+  --metadata-json '{"team":"search","lang":"en"}'
+```
+
+Run semantic query:
+
+```bash
+uv run raggy api query --query "what is this document about?" --top-k 5
+```
+
+Call any endpoint directly:
+
+```bash
+uv run raggy api request --method POST --path /query --body-json '{"query":"hello","top_k":3}'
+```
+
+### API CLI Guidelines
+
+- Ensure API is running before calling endpoint commands (`uv run raggy run` or Docker Compose).
+- Use `--base-url` when API is not on `http://127.0.0.1:8000`.
+- Use `--timeout` for slower environments.
+- Use `--raw` if you need exact response bytes without pretty-printed JSON.
+- Pass valid JSON objects to `--metadata-json` and `--body-json`.
+
 ## Database Migrations
 
 Apply latest migrations:
