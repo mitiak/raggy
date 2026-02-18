@@ -21,7 +21,11 @@ class IngestJob(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     status: Mapped[IngestJobStatus] = mapped_column(
-        Enum(IngestJobStatus, name="ingest_job_status_enum"),
+        Enum(
+            IngestJobStatus,
+            name="ingest_job_status_enum",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         nullable=False,
         default=IngestJobStatus.PENDING,
         server_default=IngestJobStatus.PENDING.value,

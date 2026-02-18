@@ -23,7 +23,11 @@ class Document(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_type: Mapped[SourceType] = mapped_column(
-        Enum(SourceType, name="source_type_enum"),
+        Enum(
+            SourceType,
+            name="source_type_enum",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         nullable=False,
         default=SourceType.MD,
         server_default=SourceType.MD.value,
