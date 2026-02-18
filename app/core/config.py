@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     embedding_dim: int = Field(default=1536, alias="EMBEDDING_DIM")
     ivfflat_probes: int = Field(default=100, alias="IVFFLAT_PROBES")
+    max_request_bytes: int = Field(default=200_000, alias="MAX_REQUEST_BYTES")
+    rate_limit_requests: int = Field(default=120, alias="RATE_LIMIT_REQUESTS")
+    rate_limit_window_seconds: int = Field(default=60, alias="RATE_LIMIT_WINDOW_SECONDS")
     database_url: str = Field(
         default="postgresql+asyncpg://raggy:raggy@localhost:5432/raggy",
         alias="DATABASE_URL",

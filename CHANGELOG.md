@@ -26,6 +26,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Made ingestion idempotent/deterministic by deduping existing documents and generating deterministic chunk UUIDs from `doc_id + chunk_index + text`.
 - Added Alembic migration `0003_doc_idempotency` with unique index `uq_documents_idempotency` for dedupe/upsert safety.
 - Added dedicated `RagService` generation layer so `/query` answer synthesis is separated from retrieval and routes.
+- Implemented milestone-4 guardrails: request size limiting (413) and basic in-memory rate limiting (429).
+- Added milestone verification guides for 3/4 and planned guides for 5/6 under `/Users/dimako/src/raggy/examples/`.
+- Added e2e tests for milestone 4 guardrails and placeholder pending e2e specs for milestones 5 and 6.
 
 ## [0.1.0] - 2026-02-18
 

@@ -55,6 +55,9 @@ Important variables:
 - `APP_HOST`
 - `APP_PORT`
 - `IVFFLAT_PROBES`
+- `MAX_REQUEST_BYTES`
+- `RATE_LIMIT_REQUESTS`
+- `RATE_LIMIT_WINDOW_SECONDS`
 
 ## Run with Docker Compose
 
@@ -188,6 +191,10 @@ uv run raggy api request --method POST --path /query --body-json '{"query":"hell
 
 - Fun real-document walkthrough (Rubber Duck Debugging): `/Users/dimako/src/raggy/examples/fun-doc-rubber-duck.md`
 - Full CLI examples for every command: `/Users/dimako/src/raggy/examples/cli-command-examples.md`
+- Milestone 3 verification commands: `/Users/dimako/src/raggy/examples/milestone-3-rag-service-verify.md`
+- Milestone 4 verification commands: `/Users/dimako/src/raggy/examples/milestone-4-security-verify.md`
+- Milestone 5 planned verification commands: `/Users/dimako/src/raggy/examples/milestone-5-eval-verify.md`
+- Milestone 6 planned verification commands: `/Users/dimako/src/raggy/examples/milestone-6-timings-verify.md`
 - This guide includes:
   - ingesting a real document excerpt
   - running semantic queries
