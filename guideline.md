@@ -69,7 +69,7 @@ Track:
 
 ## “Done” checklist for Week 1
 
-- [ ] Ingest → embed → store in pgvector
-- [ ] Query returns structured JSON with citations + filters
-- [ ] Works on a small docs set (50–500 chunks)
-- [ ] Basic eval script runs and prints metrics
+- [x] Ingest → embed → store in pgvector
+- [x] Query returns structured JSON with citations + filters
+- [x] Works on a small docs set (50–500 chunks)
+- [x] Basic eval script runs and prints metrics

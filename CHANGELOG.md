@@ -16,10 +16,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Expanded DB schema with `documents` source metadata/hash fields, richer `chunks` fields, and a new `ingest_jobs` model plus vector/GIN indexes.
 - Added `raggy api` CLI commands to trigger available API endpoints (`/health`, `/documents`, `/query`) and custom requests from terminal.
 - Added `raggy db` CLI commands to explore DB contents (`stats`, `documents`, `chunks`, `jobs`, `document`) from terminal.
-- Added fun real-document CLI exploration examples using Rubber Duck Debugging in `/Users/dimako/src/raggy/examples/fun-doc-rubber-duck.md`.
+- Added fun real-document CLI exploration examples using Rubber Duck Debugging in `examples/fun-doc-rubber-duck.md`.
 - Fixed enum migration re-run failures (`source_type_enum` already exists) and added forward migration `0002_add_ingest_jobs_if_missing`.
 - Added pytest coverage for document ingestion service logic and CLI API/db helper behavior.
-- Added `/Users/dimako/src/raggy/examples/cli-command-examples.md` with examples for all CLI commands and subcommands.
+- Added `examples/cli-command-examples.md` with examples for all CLI commands and subcommands.
 - Added `raggy doctor` command to diagnose effective DB target, schema/table status, and API health in one step.
 - Fixed empty vector search results on small datasets by setting `ivfflat.probes` during retrieval (configurable via `IVFFLAT_PROBES`).
 - Added API e2e tests for `/health`, `/documents`, and `/query` (including validation error path).
@@ -27,12 +27,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added Alembic migration `0003_doc_idempotency` with unique index `uq_documents_idempotency` for dedupe/upsert safety.
 - Added dedicated `RagService` generation layer so `/query` answer synthesis is separated from retrieval and routes.
 - Implemented milestone-4 guardrails: request size limiting (413) and basic in-memory rate limiting (429).
-- Added milestone verification guides for 3/4/5/6 under `/Users/dimako/src/raggy/examples/`.
+- Added milestone verification guides for 3/4/5/6 under `examples/`.
 - Added e2e tests for milestone 4 guardrails and placeholder pending e2e specs for milestones 5 and 6.
 - Implemented milestone-5 evaluation harness with `raggy eval run`, fixture docs, golden QA set, and metrics (citation correctness, retrieval hit rate, IDK rate).
-- Added milestone-5 e2e test in `/Users/dimako/src/raggy/tests/test_milestone5_eval_e2e.py`.
+- Added milestone-5 e2e test in `tests/test_milestone5_eval_e2e.py`.
 - Implemented milestone-6 query timing outputs (`retrieve_ms`, `gen_ms`) in RAG responses and logs.
-- Added milestone-6 e2e test in `/Users/dimako/src/raggy/tests/test_milestone6_timings_e2e.py`.
+- Added milestone-6 e2e test in `tests/test_milestone6_timings_e2e.py`.
 
 ## [0.1.0] - 2026-02-18
 

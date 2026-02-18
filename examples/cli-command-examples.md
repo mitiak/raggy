@@ -1,6 +1,6 @@
 # CLI Command Examples (All Commands)
 
-Use these from the project root (`/Users/dimako/src/raggy`).
+Use these from the project root (`.`).
 
 ## 0) Setup once
 
