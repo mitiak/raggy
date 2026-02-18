@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.models.chunk import Chunk
+from app.models.document import Document
 from app.schemas.query import QueryResult
 from app.services.embedding import EmbeddingService
 
@@ -34,20 +35,25 @@ class RetrievalService:
         await self._session.execute(text(f"SET LOCAL ivfflat.probes = {self._ivfflat_probes}"))
         distance = Chunk.embedding.cosine_distance(vector)
 
-        stmt: Select[tuple[Chunk, float]] = (
-            select(Chunk, distance.label("distance")).order_by(distance).limit(top_k)
+        stmt: Select[tuple[Chunk, Document, float]] = (
+            select(Chunk, Document, distance.label("distance"))
+            .join(Document, Chunk.doc_id == Document.id)
+            .order_by(distance)
+            .limit(top_k)
         )
         rows = (await self._session.execute(stmt)).all()
         logger.info("retrieval_vector_search_completed", candidate_count=len(rows))
 
         results: list[QueryResult] = []
-        for chunk, dist in rows:
+        for chunk, document, dist in rows:
             score = 1.0 - float(dist)
             results.append(
                 QueryResult(
                     chunk_id=chunk.id,
                     document_id=chunk.doc_id,
                     content=chunk.text,
+                    title=document.title,
+                    url=document.source_url,
                     score=max(min(score, 1.0), 0.0),
                 )
             )

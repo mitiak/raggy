@@ -42,6 +42,8 @@ class _FakeRetrievalService:
                 chunk_id=uuid4(),
                 document_id=uuid4(),
                 content="Rubber duck debugging helps by forcing clear reasoning.",
+                title="Rubber duck debugging",
+                url="https://example.com/fun",
                 score=0.87,
             )
         ]
@@ -99,8 +101,10 @@ def test_query_endpoint_returns_results(client: TestClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body["results"]) == 1
-    assert "Rubber duck debugging" in body["results"][0]["content"]
+    assert "Rubber duck debugging" in body["answer"]
+    assert body["confidence"] == pytest.approx(0.87)
+    assert len(body["citations"]) == 1
+    assert body["citations"][0]["title"] == "Rubber duck debugging"
 
 
 def test_query_endpoint_validation_error(client: TestClient) -> None:
