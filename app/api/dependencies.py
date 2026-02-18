@@ -5,6 +5,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.services.document_service import DocumentService
 from app.services.embedding import EmbeddingService, HashEmbeddingService
+from app.services.rag_service import RagService
 from app.services.retrieval_service import RetrievalService
 
 _embedding_service: EmbeddingService | None = None
@@ -35,3 +36,9 @@ def get_retrieval_service(
         embedding_service=embedding_service,
         ivfflat_probes=settings.ivfflat_probes,
     )
+
+
+def get_rag_service(
+    retrieval_service: RetrievalService = Depends(get_retrieval_service),
+) -> RagService:
+    return RagService(retrieval_service=retrieval_service)

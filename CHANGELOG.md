@@ -25,6 +25,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added API e2e tests for `/health`, `/documents`, and `/query` (including validation error path).
 - Made ingestion idempotent/deterministic by deduping existing documents and generating deterministic chunk UUIDs from `doc_id + chunk_index + text`.
 - Added Alembic migration `0003_doc_idempotency` with unique index `uq_documents_idempotency` for dedupe/upsert safety.
+- Added dedicated `RagService` generation layer so `/query` answer synthesis is separated from retrieval and routes.
 
 ## [0.1.0] - 2026-02-18
 
