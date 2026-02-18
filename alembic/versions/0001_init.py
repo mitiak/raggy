@@ -18,8 +18,8 @@ depends_on: Sequence[str] | None = None
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-    source_type_enum = sa.Enum("url", "md", name="source_type_enum")
-    ingest_job_status_enum = sa.Enum(
+    source_type_enum = postgresql.ENUM("url", "md", name="source_type_enum")
+    ingest_job_status_enum = postgresql.ENUM(
         "pending",
         "running",
         "success",
@@ -32,7 +32,12 @@ def upgrade() -> None:
     op.create_table(
         "documents",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("source_type", source_type_enum, nullable=False, server_default=sa.text("'md'")),
+        sa.Column(
+            "source_type",
+            postgresql.ENUM("url", "md", name="source_type_enum", create_type=False),
+            nullable=False,
+            server_default=sa.text("'md'"),
+        ),
         sa.Column("source_url", sa.String(length=2048), nullable=True),
         sa.Column("title", sa.String(length=512), nullable=False),
         sa.Column("content_hash", sa.String(length=64), nullable=False),
@@ -93,7 +98,14 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "status",
-            ingest_job_status_enum,
+            postgresql.ENUM(
+                "pending",
+                "running",
+                "success",
+                "failure",
+                name="ingest_job_status_enum",
+                create_type=False,
+            ),
             nullable=False,
             server_default=sa.text("'pending'"),
         ),
