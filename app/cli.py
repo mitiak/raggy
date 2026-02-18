@@ -8,6 +8,7 @@ import subprocess
 import sys
 from collections.abc import Coroutine, Sequence
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from urllib import error, request
 from urllib.parse import SplitResult, urlsplit, urlunsplit
@@ -18,6 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
+from app.eval.runner import run_evaluation
 from app.models.chunk import Chunk
 from app.models.document import Document
 from app.models.ingest_job import IngestJob
@@ -237,6 +239,45 @@ def _cmd_check(args: argparse.Namespace) -> int:
         if exit_code != 0:
             return exit_code
     return 0
+
+
+def _cmd_eval_run(args: argparse.Namespace) -> int:
+    report = run_evaluation(
+        base_url=args.base_url,
+        timeout=args.timeout,
+        dataset_path=Path(args.dataset),
+        fixture_path=Path(args.fixtures) if args.fixtures is not None else None,
+        ingest_fixtures=args.ingest_fixtures,
+        limit=args.limit,
+    )
+
+    if args.json:
+        _print_json(report)
+    else:
+        print("Evaluation report:")
+        print(f"- total_questions: {report['total_questions']}")
+        print(f"- completed_questions: {report['completed_questions']}")
+        print(f"- failed_questions: {report['failed_questions']}")
+        print(f"- answerable_questions: {report['answerable_questions']}")
+        print(f"- unanswerable_questions: {report['unanswerable_questions']}")
+        print(f"- retrieval_hit_rate: {report['retrieval_hit_rate']}")
+        print(f"- citation_correctness: {report['citation_correctness']}")
+        print(f"- idk_rate_unanswerable: {report['idk_rate_unanswerable']}")
+        print(
+            f"- citation_checks: {report['citation_checks_supported']}/"
+            f"{report['citation_checks_total']}"
+        )
+        if report["citation_errors"] is not None:
+            print(f"- citation_errors: {report['citation_errors']}")
+        if report["failures"]:
+            print("- failures:")
+            for failure in report["failures"]:
+                print(
+                    f"  - {failure['id']} status={failure['status_code']} "
+                    f"error={json.dumps(failure['error'])}"
+                )
+
+    return 0 if report["failed_questions"] == 0 else 1
 
 
 async def _doctor_db_payload() -> dict[str, Any]:
@@ -1100,6 +1141,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     db_document_parser.add_argument("--json", action="store_true", help="Output JSON.")
     db_document_parser.set_defaults(func=_cmd_db_document)
+
+    eval_parser = subparsers.add_parser("eval", help="Run evaluation metrics on query quality.")
+    eval_subparsers = eval_parser.add_subparsers(dest="eval_command", required=True)
+
+    eval_run_parser = eval_subparsers.add_parser("run", help="Run evaluation on golden questions.")
+    eval_run_parser.add_argument(
+        "--dataset",
+        default="eval/golden_qa.jsonl",
+        help="Path to golden QA JSONL dataset.",
+    )
+    eval_run_parser.add_argument(
+        "--fixtures",
+        default="eval/fixture_docs.jsonl",
+        help="Path to fixture docs JSONL for optional bootstrap ingest.",
+    )
+    eval_run_parser.add_argument(
+        "--ingest-fixtures",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Ingest fixture docs before evaluation.",
+    )
+    eval_run_parser.add_argument(
+        "--base-url",
+        default="http://127.0.0.1:8000",
+        help="API base URL for evaluation requests.",
+    )
+    eval_run_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=10.0,
+        help="HTTP timeout in seconds for each request.",
+    )
+    eval_run_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Optional number of questions to run from the dataset.",
+    )
+    eval_run_parser.add_argument("--json", action="store_true", help="Output JSON.")
+    eval_run_parser.set_defaults(func=_cmd_eval_run)
 
     migrate_parser = subparsers.add_parser("migrate", help="Run Alembic migrations.")
     migrate_subparsers = migrate_parser.add_subparsers(dest="migrate_command", required=True)

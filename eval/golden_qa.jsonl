@@ -1,0 +1,10 @@
+{"id":"q1","query":"What is rubber duck debugging?","answerable":true,"used_filters":{"lang":"en","source":"guide"},"expected_title":"Duck Debugging EN"}
+{"id":"q2","query":"How does duck debugging help find mistakes?","answerable":true,"used_filters":{"lang":"en","source":"guide"},"expected_substring":"uncover mistakes"}
+{"id":"q3","query":"Que hace la depuracion con pato de goma?","answerable":true,"used_filters":{"lang":"es","source":"guide"},"expected_title":"Duck Debugging ES"}
+{"id":"q4","query":"Which metadata fields can be used to filter retrieval?","answerable":true,"used_filters":{"source":"docs"},"expected_title":"Retrieval Filters"}
+{"id":"q5","query":"What does the API do for reliability protection?","answerable":true,"used_filters":{"source":"security"},"expected_title":"Service Guardrails"}
+{"id":"q6","query":"How can filters limit retrieval scope?","answerable":true,"used_filters":{"product":"raggy","version":"2.0"},"expected_substring":"Metadata filters"}
+{"id":"q7","query":"What is the capital of Mars?","answerable":false,"used_filters":{"lang":"en"}}
+{"id":"q8","query":"Who won the lunar football cup in 1921?","answerable":false,"used_filters":{"lang":"en"}}
+{"id":"q9","query":"What language is described in the Spanish duck note?","answerable":true,"used_filters":{"lang":"es"},"expected_title":"Duck Debugging ES"}
+{"id":"q10","query":"Does the service enforce request limits?","answerable":true,"used_filters":{"source":"security"},"expected_substring":"request size limits"}

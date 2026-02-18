@@ -124,6 +124,7 @@ uv run raggy migrate up
 uv run raggy migrate new "add_new_table" --autogenerate
 uv run raggy db stats
 uv run raggy db documents --limit 10
+uv run raggy eval run
 uv run raggy lint
 uv run raggy typecheck
 uv run raggy check

@@ -235,3 +235,29 @@ Lint + type-check:
 ```bash
 uv run raggy check
 ```
+
+## 6) `eval`
+
+Run golden evaluation with fixture ingest:
+
+```bash
+uv run raggy eval run
+```
+
+JSON report:
+
+```bash
+uv run raggy eval run --json
+```
+
+Fast smoke run on first 3 questions:
+
+```bash
+uv run raggy eval run --limit 3 --json
+```
+
+Evaluate existing corpus only (skip fixture ingest):
+
+```bash
+uv run raggy eval run --no-ingest-fixtures --json
+```
