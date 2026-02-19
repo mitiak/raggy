@@ -199,6 +199,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         )
         return _run_shell_and_exit(shell_command, args.quiet)
 
+    if args.logster:
+        shell_command = (
+            "uv run uvicorn app.main:app "
+            f"--host {shlex.quote(host)} "
+            f"--port {port} "
+            f"{'--reload ' if args.reload else ''}"
+            "| uv run logster"
+        )
+        return _run_shell_and_exit(shell_command, args.quiet)
+
     return _run_and_exit(command, args.quiet)
 
 
@@ -1039,10 +1049,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=True,
         help="Enable or disable auto-reload.",
     )
-    run_parser.add_argument(
+    run_output_group = run_parser.add_mutually_exclusive_group()
+    run_output_group.add_argument(
         "--jq",
         action="store_true",
         help="Pipe uvicorn output through jq: jq -R 'fromjson? // .'.",
+    )
+    run_output_group.add_argument(
+        "--logster",
+        action="store_true",
+        help="Pipe uvicorn output through logster.",
     )
     _add_common_verbosity(run_parser)
     run_parser.set_defaults(func=_cmd_run)

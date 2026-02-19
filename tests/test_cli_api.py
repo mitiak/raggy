@@ -3,6 +3,8 @@ from __future__ import annotations
 from argparse import Namespace
 from typing import Any
 
+import pytest
+
 from app import cli
 
 
@@ -135,3 +137,35 @@ def test_parser_supports_api_query_command() -> None:
     assert args.api_command == "query"
     assert args.query == "hello"
     assert args.top_k == 2
+
+
+def test_run_uses_logster_pipeline(monkeypatch: Any) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_run_shell_and_exit(command: str, quiet: bool) -> int:
+        captured["command"] = command
+        captured["quiet"] = quiet
+        return 0
+
+    monkeypatch.setattr(cli, "_run_shell_and_exit", fake_run_shell_and_exit)
+    args = Namespace(
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        jq=False,
+        logster=True,
+        quiet=False,
+    )
+
+    code = cli._cmd_run(args)
+
+    assert code == 0
+    assert "| uv run logster" in captured["command"]
+    assert captured["quiet"] is False
+
+
+def test_parser_rejects_jq_and_logster_together() -> None:
+    parser = cli.build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["run", "--jq", "--logster"])

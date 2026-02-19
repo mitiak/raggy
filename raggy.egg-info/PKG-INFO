@@ -13,6 +13,7 @@ Requires-Dist: pgvector>=0.3.2
 Requires-Dist: pydantic>=2.8.2
 Requires-Dist: pydantic-settings>=2.4.0
 Requires-Dist: structlog>=24.4.0
+Requires-Dist: logster
 Provides-Extra: dev
 Requires-Dist: mypy>=1.11.1; extra == "dev"
 Requires-Dist: ruff>=0.6.2; extra == "dev"
@@ -22,16 +23,306 @@ Requires-Dist: httpx>=0.27.2; extra == "dev"
 
 # raggy
 
-Production-ready RAG backend using FastAPI, Postgres + pgvector, SQLAlchemy async, and Alembic.
+Production-ready RAG backend service built with FastAPI, PostgreSQL, pgvector, SQLAlchemy async, Alembic, and Pydantic v2.
 
-## Run locally
+## Features
+
+- Async FastAPI API service
+- PostgreSQL 15+ with `pgvector`
+- SQLAlchemy 2.0 async ORM
+- Alembic migrations
+- Strictly typed Python (mypy strict)
+- Layered architecture:
+  - `app/api` (HTTP layer only)
+  - `app/services` (business logic)
+  - `app/db` (DB config/session)
+  - `app/models` (ORM entities)
+  - `app/schemas` (Pydantic contracts)
+- Structured JSON logging
+- Dependency injection for DB sessions/services
+- Worker-ready boundary in `app/workers`
+
+## Project Structure
+
+```text
+app/
+  api/
+  core/
+  db/
+  models/
+  schemas/
+  services/
+  workers/
+alembic/
+```
+
+## Prerequisites
+
+- Docker + Docker Compose
+- Python 3.12+ (local development)
+- `uv` (recommended dependency manager)
+
+## Configuration
+
+Copy and edit environment values as needed:
+
+```bash
+cp .env.example .env
+```
+
+Important variables:
+
+- `DATABASE_URL`
+- `EMBEDDING_DIM`
+- `LOG_LEVEL`
+- `APP_HOST`
+- `APP_PORT`
+- `IVFFLAT_PROBES`
+- `MAX_REQUEST_BYTES`
+- `RATE_LIMIT_REQUESTS`
+- `RATE_LIMIT_WINDOW_SECONDS`
+
+## Run with Docker Compose
+
+Start API + PostgreSQL:
 
 ```bash
 docker compose up --build
 ```
 
-## Migrations
+API will be available at:
+
+- `http://localhost:8000`
+- OpenAPI docs: `http://localhost:8000/docs`
+
+Stop services:
 
 ```bash
-alembic upgrade head
+docker compose down
 ```
+
+## Local Development (without Docker for API)
+
+Start only DB container:
+
+```bash
+docker compose up -d db
+```
+
+Install dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+Run DB migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+Start API:
+
+```bash
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Development CLI
+
+This project ships with a development CLI command: `raggy`.
+
+Use it via:
+
+```bash
+uv run raggy --help
+```
+
+Common commands:
+
+```bash
+uv run raggy run
+uv run raggy run --jq
+uv run raggy doctor
+uv run raggy migrate up
+uv run raggy migrate new "add_new_table" --autogenerate
+uv run raggy db stats
+uv run raggy db documents --limit 10
+uv run raggy eval run
+uv run raggy lint
+uv run raggy typecheck
+uv run raggy check
+```
+
+Pretty-print JSON logs with `jq`:
+
+```bash
+uv run raggy run --jq
+```
+
+Quick environment diagnostics:
+
+```bash
+uv run raggy doctor
+uv run raggy doctor --json
+```
+
+### Trigger API Endpoints from CLI
+
+List shortcut commands:
+
+```bash
+uv run raggy api list
+```
+
+Call health endpoint:
+
+```bash
+uv run raggy api health
+```
+
+Ingest a document:
+
+```bash
+uv run raggy api ingest \\
+  --source-type url \\
+  --source-url https://example.com/post \\
+  --title "Example Post" \\
+  --content "Some markdown or plain text content." \\
+  --metadata-json '{"team":"search","lang":"en"}'
+```
+
+Run semantic query:
+
+```bash
+uv run raggy api query --query "what is this document about?" --top-k 5
+```
+
+Call any endpoint directly:
+
+```bash
+uv run raggy api request --method POST --path /query --body-json '{"query":"hello","top_k":3}'
+```
+
+### API CLI Guidelines
+
+- Ensure API is running before calling endpoint commands (`uv run raggy run` or Docker Compose).
+- Use `--base-url` when API is not on `http://127.0.0.1:8000`.
+- Use `--timeout` for slower environments.
+- Use `--raw` if you need exact response bytes without pretty-printed JSON.
+- Pass valid JSON objects to `--metadata-json` and `--body-json`.
+
+### Examples for Exploration
+
+- Fun real-document walkthrough (Rubber Duck Debugging): `examples/fun-doc-rubber-duck.md`
+- Full CLI examples for every command: `examples/cli-command-examples.md`
+- Milestone 3 verification commands: `examples/milestone-3-rag-service-verify.md`
+- Milestone 4 verification commands: `examples/milestone-4-security-verify.md`
+- Milestone 5 verification commands: `examples/milestone-5-eval-verify.md`
+- Milestone 6 verification commands: `examples/milestone-6-timings-verify.md`
+- This guide includes:
+  - ingesting a real document excerpt
+  - running semantic queries
+  - testing validation failures (`422`)
+  - testing unknown routes (`404`)
+
+### Explore Database from CLI
+
+Get table-level counts:
+
+```bash
+uv run raggy db stats
+```
+
+List recent rows:
+
+```bash
+uv run raggy db documents --limit 20
+uv run raggy db chunks --limit 20
+uv run raggy db jobs --limit 20
+```
+
+Inspect one document with chunk previews:
+
+```bash
+uv run raggy db document --id <DOCUMENT_UUID> --chunks-limit 5
+```
+
+Output any DB command as JSON:
+
+```bash
+uv run raggy db documents --json
+```
+
+## Database Migrations
+
+Apply latest migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+Create a new migration:
+
+```bash
+uv run alembic revision -m "describe_change"
+```
+
+Rollback one migration:
+
+```bash
+uv run alembic downgrade -1
+```
+
+## Quality Checks
+
+Lint:
+
+```bash
+uv run ruff check .
+```
+
+Type-check:
+
+```bash
+uv run mypy app
+```
+
+Run both:
+
+```bash
+uv run ruff check . && uv run mypy app
+```
+
+## API Endpoints
+
+- `GET /health` - health and DB connectivity check
+- `POST /documents` - ingest a document and persist generated chunks/embeddings
+- `POST /query` - semantic retrieval over stored chunks
+
+## Notes on Embeddings
+
+Current implementation uses a deterministic hash-based embedding service (`HashEmbeddingService`) to keep the service runnable end-to-end. Replace it with your production embedding provider in:
+
+- `app/services/embedding.py`
+- `app/api/dependencies.py`
+
+## Logging
+
+Structured JSON logs are configured in:
+
+- `app/core/logging.py`
+
+Request-level metadata (`request_id`, path, status, latency) is emitted by middleware in:
+
+- `app/main.py`
+
+## Changelog
+
+Release history is maintained in:
+
+- `CHANGELOG.md`
+
+## Maintenance Notes
+
+- Keep `README.md` updated when commands, env vars, architecture, or endpoints change.
+- Add every meaningful change to `CHANGELOG.md` under `Unreleased`, then move it to a version section at release time.

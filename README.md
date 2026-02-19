@@ -119,6 +119,7 @@ Common commands:
 ```bash
 uv run raggy run
 uv run raggy run --jq
+uv run raggy run --logster
 uv run raggy doctor
 uv run raggy migrate up
 uv run raggy migrate new "add_new_table" --autogenerate
@@ -134,6 +135,12 @@ Pretty-print JSON logs with `jq`:
 
 ```bash
 uv run raggy run --jq
+```
+
+Pretty-print JSON logs with `logster`:
+
+```bash
+uv run raggy run --logster
 ```
 
 Quick environment diagnostics:

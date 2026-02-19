@@ -14,6 +14,7 @@ dependencies = [
   "pydantic>=2.8.2",
   "pydantic-settings>=2.4.0",
   "structlog>=24.4.0",
+  "logster",
 ]
 
 [project.optional-dependencies]
@@ -57,3 +58,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["pgvector", "pgvector.sqlalchemy", "pgvector.*"]
 ignore_missing_imports = true
+
+[tool.uv.sources]
+logster = { git = "https://github.com/mitiak/logster.git" }

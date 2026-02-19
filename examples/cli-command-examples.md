@@ -24,6 +24,12 @@ Start API with pretty log output:
 uv run raggy run --jq
 ```
 
+Start API with pretty log output via logster:
+
+```bash
+uv run raggy run --logster
+```
+
 Custom host/port and no reload:
 
 ```bash

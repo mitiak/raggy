@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="46369eb4-182a-4952-a26f-13f6c8507b97" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/CHANGELOG.md" beforeDir="false" afterPath="$PROJECT_DIR$/CHANGELOG.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/cli-command-examples.md" beforeDir="false" afterPath="$PROJECT_DIR$/examples/cli-command-examples.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/guideline.md" beforeDir="false" afterPath="$PROJECT_DIR$/guideline.md" afterDir="false" />
-    </list>
+    <list default="true" id="46369eb4-182a-4952-a26f-13f6c8507b97" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

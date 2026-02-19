@@ -13,6 +13,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Expanded README with detailed instructions for setup, development, Docker usage, migrations, and quality checks.
 - Added `raggy` development CLI for running the API, migrations, linting, type-checking, and tests from terminal.
 - Added `raggy run --jq` option to run `uvicorn` through `jq -R 'fromjson? // .'` for readable log output.
+- Added `logster` dependency from GitHub and `raggy run --logster` to pretty-print JSON logs via logster.
 - Expanded DB schema with `documents` source metadata/hash fields, richer `chunks` fields, and a new `ingest_jobs` model plus vector/GIN indexes.
 - Added `raggy api` CLI commands to trigger available API endpoints (`/health`, `/documents`, `/query`) and custom requests from terminal.
 - Added `raggy db` CLI commands to explore DB contents (`stats`, `documents`, `chunks`, `jobs`, `document`) from terminal.
