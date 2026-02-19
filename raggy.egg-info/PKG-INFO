@@ -13,7 +13,7 @@ Requires-Dist: pgvector>=0.3.2
 Requires-Dist: pydantic>=2.8.2
 Requires-Dist: pydantic-settings>=2.4.0
 Requires-Dist: structlog>=24.4.0
-Requires-Dist: logster
+Requires-Dist: logster>=0.1.2
 Provides-Extra: dev
 Requires-Dist: mypy>=1.11.1; extra == "dev"
 Requires-Dist: ruff>=0.6.2; extra == "dev"
@@ -142,6 +142,7 @@ Common commands:
 ```bash
 uv run raggy run
 uv run raggy run --jq
+uv run raggy run --logster
 uv run raggy doctor
 uv run raggy migrate up
 uv run raggy migrate new "add_new_table" --autogenerate
@@ -157,6 +158,12 @@ Pretty-print JSON logs with `jq`:
 
 ```bash
 uv run raggy run --jq
+```
+
+Pretty-print JSON logs with `logster`:
+
+```bash
+uv run raggy run --logster
 ```
 
 Quick environment diagnostics:
