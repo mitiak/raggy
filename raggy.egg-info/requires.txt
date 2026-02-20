@@ -7,7 +7,7 @@ pgvector>=0.3.2
 pydantic>=2.8.2
 pydantic-settings>=2.4.0
 structlog>=24.4.0
-logster>=0.1.2
+logster>=0.1
 
 [dev]
 mypy>=1.11.1

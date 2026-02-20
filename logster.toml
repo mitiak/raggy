@@ -1,0 +1,26 @@
+# logster configuration
+# Copy this file to your target project and tweak values as needed.
+
+no_color = false
+output_style = "verbose"  # compact | verbose
+theme = "monokai-github-meta"  # preset theme name
+metadata_color = "green"
+time_color = "green"
+level_color = "green"
+file_color = "green"
+origin_color = "green"
+message_color = "bright_yellow"
+verbose_metadata_key_color = "green"
+verbose_metadata_value_color = "bright_yellow"
+verbose_metadata_punctuation_color = "green"
+
+[fields]
+timestamp = "timestamp"
+level = "level"
+path = "path"
+query = "query"
+top_k = "top_k"
+file = "file"
+function = "function"
+line = "line"
+message_fields = ["event", "message", "msg"]
