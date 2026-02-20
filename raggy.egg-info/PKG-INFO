@@ -13,7 +13,7 @@ Requires-Dist: pgvector>=0.3.2
 Requires-Dist: pydantic>=2.8.2
 Requires-Dist: pydantic-settings>=2.4.0
 Requires-Dist: structlog>=24.4.0
-Requires-Dist: logster>=0.1
+Requires-Dist: logster<0.2,>=0.1
 Provides-Extra: dev
 Requires-Dist: mypy>=1.11.1; extra == "dev"
 Requires-Dist: ruff>=0.6.2; extra == "dev"
